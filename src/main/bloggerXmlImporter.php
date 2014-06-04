@@ -4,6 +4,11 @@
  *   php bloggerXmlImporter.php <path/to/bloggerExport.xml>
  */
 
+CONST DB_CONNECTION = "mysql:host=localhost;dbname=s9y";
+CONST DB_USER = "s9y";
+CONST DB_PASS = "12init34";
+CONST DB_TABLENAME = "s9y_entries";
+
 // =============================================================================
 // Helper
 // =============================================================================
@@ -26,6 +31,14 @@ function importEntries($start, $end, $xml) {
 	else
 		$end++;
 	
+	// Database
+	$dbh = new PDO(DB_CONNECTION, DB_USER, DB_PASS);
+	$stmt = $dbh->prepare("INSERT INTO " . DB_TABLENAME . " 
+				(title, timestamp, body, comments, trackbacks, extended, exflag, author, authorid, isdraft, allow_comments, last_modified, moderate_comments)
+			VALUES (:title, :timestamp, :body, :comments, :trackbacks, :extended, :exflag, :author, :authorid, :isdraft, :allow_comments, :last_modified, :moderate_comments)");
+	
+	// Insert entries
+	$dbh->beginTransaction();
 	echo PHP_EOL;
 	for ($i = (int) $start; $i < $end; $i++) {
 		$post = array('title' 			 => (string) $xml->entry[$i]->title,
@@ -42,10 +55,15 @@ function importEntries($start, $end, $xml) {
 					  'author'			 => 'Fritz Schrogl',
 					  'authorid'		 => (int) 1);
 		
-		// TODO convert timestamp, db connection + insert
+		// Convert timestamp to Unix-Time
+		$datetime = date_create_from_format("Y-m-d?H:i:s?????T", $post['timestamp']);
+		$post['timestamp'] = $datetime->getTimestamp();
 		
+		$stmt->execute($post);
 		echo "DONE -> [" . $i . "] \t - " . $xml->entry[$i]->title . PHP_EOL; 
 	}
+	$dbh->commit();
+	$dbh = null; // Close connection
 }
 
 function readInput($text = "Input: ") {
